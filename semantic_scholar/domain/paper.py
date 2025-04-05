@@ -4,7 +4,7 @@ from typing import Optional, List
 
 @dataclass
 class Paper:
-    paper_id: str
+    corpus_id: int  # The unique identifier for papers (int64)
     title: str
     abstract: Optional[str] = None
     year: Optional[int] = None

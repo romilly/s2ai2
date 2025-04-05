@@ -5,7 +5,8 @@ A Python application that integrates with the [Semantic Scholar API](https://www
 ## Features
 
 - Search for academic papers using the Semantic Scholar API
-- Store paper data in PostgreSQL or SQLite databases
+- Store paper data in PostgreSQL database
+- Support for both paperId (string) and corpusId (int64) identifiers
 - Caching mechanism to reduce API calls
 - RESTful API built with FastAPI
 - Clean architecture with domain-driven design principles
@@ -23,7 +24,6 @@ The project follows a clean architecture approach with the following components:
 - **Adapters Layer**: Implementations of the interfaces defined in the ports layer
   - `SemanticScholarApiClient`: Client for the Semantic Scholar API
   - `PostgresPaperRepository`: PostgreSQL implementation of the paper repository
-  - `SqlitePaperRepository`: SQLite implementation of the paper repository
   - `CachedPaperRepository`: Caching decorator for paper repositories
 
 ## Installation
@@ -51,6 +51,21 @@ The project follows a clean architecture approach with the following components:
    # Edit .env with your database credentials
    ```
 
+## Paper Identifiers
+
+The Semantic Scholar API uses two different identifiers for papers:
+
+- **paperId** (string): The primary way to identify papers when using the Semantic Scholar website or API
+- **corpusId** (int64): A second way to identify papers, commonly used in datasets
+
+This application uses a data model where:
+
+- Each paper is uniquely identified by its `corpusId`
+- Multiple `paperId`s can map to a single `corpusId` (many-to-one relationship)
+- The application stores papers in a `papers` table with `corpus_id` as the primary key
+- Paper IDs are stored in a separate `paperids` table with a foreign key to the papers table
+- The application provides methods to retrieve papers by either identifier
+
 ## Usage
 
 ### Running the API Server
@@ -77,10 +92,22 @@ papers = repository.search_papers("machine learning", limit=5)
 # Print results
 for paper in papers:
     print(f"Title: {paper.title}")
+    print(f"Corpus ID: {paper.corpus_id}")
     print(f"Authors: {', '.join(paper.authors)}")
     print(f"Year: {paper.year}")
     print(f"Abstract: {paper.abstract}")
     print("---")
+
+# Get a paper by its paper ID (sha)
+paper = repository.get_paper_by_id("1234567890")
+
+# Get a paper by its corpus ID
+paper = repository.get_paper_by_corpus_id(12345678)
+
+# Get all paper IDs for a corpus ID
+paper_ids = repository.get_paper_ids(12345678)
+for paper_id in paper_ids:
+    print(f"SHA: {paper_id.sha}, Primary: {paper_id.is_primary}")
 ```
 
 ## Database Setup
@@ -101,16 +128,6 @@ for paper in papers:
    POSTGRES_PASSWORD=your_password
    ```
 
-### SQLite
-
-For SQLite, simply specify a file path when creating the repository:
-
-```python
-from semantic_scholar.adapters.sqlite_repository import SqlitePaperRepository
-
-repository = SqlitePaperRepository("papers.db")
-```
-
 ## Testing
 
 1. Make sure your `.env` file includes the test database configuration:
@@ -126,7 +143,7 @@ repository = SqlitePaperRepository("papers.db")
    For specific test files:
    ```bash
    python -m pytest tests/e2e/test_paper_search.py
-   python -m pytest tests/e2e/test_sqlite_repository.py
+   python -m pytest tests/e2e/test_postgres_repository.py
    ```
 
 ## License

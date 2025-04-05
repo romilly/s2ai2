@@ -12,14 +12,15 @@ class TestPaperSearch:
         # Arrange
         repository = PaperRepository(SemanticScholarApiClient())
         query = "machine learning"
-        
+
         # Act
         papers = repository.search_papers(query, limit=3)
-        
+
         # Assert
         assert len(papers) > 0
         for paper in papers:
             assert isinstance(paper, Paper)
-            assert hasattr(paper, 'paper_id')
+            assert hasattr(paper, 'corpus_id')
             assert hasattr(paper, 'title')
             assert isinstance(paper.title, str)
+            assert isinstance(paper.corpus_id, int)
