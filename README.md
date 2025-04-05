@@ -1,6 +1,6 @@
 # Semantic Scholar API Integration
 
-A Python application that integrates with the Semantic Scholar API to search, retrieve, and store academic papers. This project provides a clean architecture implementation with repository pattern for data access and a FastAPI web interface.
+A Python application that integrates with the [Semantic Scholar API](https://www.semanticscholar.org/product/api) to search, retrieve, and store academic papers. This project provides a clean architecture implementation with repository pattern for data access and a FastAPI web interface.
 
 ## Features
 
@@ -136,3 +136,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Author
 
 Romilly Cocking
+
+## Resources
+
+- [Semantic Scholar API Documentation](https://api.semanticscholar.org/api-docs/)
+- [Semantic Scholar Graph API](https://www.semanticscholar.org/product/api)
