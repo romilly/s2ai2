@@ -51,20 +51,39 @@ The project follows a clean architecture approach with the following components:
    # Edit .env with your database credentials
    ```
 
-## Paper Identifiers
+## Data Model
+
+This application uses a normalized data model to represent academic papers, authors, and their relationships:
+
+### Paper Identifiers
 
 The Semantic Scholar API uses two different identifiers for papers:
 
 - **paperId** (string): The primary way to identify papers when using the Semantic Scholar website or API
 - **corpusId** (int64): A second way to identify papers, commonly used in datasets
 
-This application uses a data model where:
+In our data model:
 
 - Each paper is uniquely identified by its `corpusId`
 - Multiple `paperId`s can map to a single `corpusId` (many-to-one relationship)
 - The application stores papers in a `papers` table with `corpus_id` as the primary key
 - Paper IDs are stored in a separate `paperids` table with a foreign key to the papers table
-- The application provides methods to retrieve papers by either identifier
+
+### Authors
+
+Authors are stored in a separate table with their unique identifiers:
+
+- Each author has an `author_id` (from Semantic Scholar) and a `name`
+- The same author can write multiple papers
+- The same paper can have multiple authors
+- This many-to-many relationship is stored in a `wrote` table
+- The `wrote` table also stores the position of each author in the paper's author list
+
+This normalized structure ensures that:
+
+1. Author information is stored only once, regardless of how many papers they've written
+2. The same paper can be identified by multiple paper IDs
+3. The relationship between authors and papers is properly modeled
 
 ## Usage
 
@@ -93,9 +112,13 @@ papers = repository.search_papers("machine learning", limit=5)
 for paper in papers:
     print(f"Title: {paper.title}")
     print(f"Corpus ID: {paper.corpus_id}")
-    print(f"Authors: {', '.join(paper.authors)}")
     print(f"Year: {paper.year}")
     print(f"Abstract: {paper.abstract}")
+
+    # Get authors for this paper
+    authors = repository.get_authors_for_paper(paper.corpus_id)
+    author_names = [author.name for author in authors]
+    print(f"Authors: {', '.join(author_names)}")
     print("---")
 
 # Get a paper by its paper ID (sha)
@@ -108,6 +131,11 @@ paper = repository.get_paper_by_corpus_id(12345678)
 paper_ids = repository.get_paper_ids(12345678)
 for paper_id in paper_ids:
     print(f"SHA: {paper_id.sha}, Primary: {paper_id.is_primary}")
+
+# Get all authors for a paper
+authors = repository.get_authors_for_paper(12345678)
+for author in authors:
+    print(f"Author ID: {author.author_id}, Name: {author.name}")
 ```
 
 ## Database Setup
@@ -127,6 +155,52 @@ for paper_id in paper_ids:
    POSTGRES_USER=your_username
    POSTGRES_PASSWORD=your_password
    ```
+
+### Database Schema
+
+The application automatically creates the following tables:
+
+- **papers**: Stores paper information with `corpus_id` as the primary key
+  ```sql
+  CREATE TABLE papers (
+      corpus_id BIGINT PRIMARY KEY,
+      title TEXT NOT NULL,
+      abstract TEXT,
+      year INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+  ```
+
+- **paperids**: Stores paper ID mappings with a foreign key to papers
+  ```sql
+  CREATE TABLE paperids (
+      sha TEXT NOT NULL,
+      corpus_id BIGINT NOT NULL,
+      is_primary BOOLEAN NOT NULL,
+      CONSTRAINT paperids_pk UNIQUE (sha),
+      FOREIGN KEY (corpus_id) REFERENCES papers(corpus_id) ON DELETE CASCADE
+  )
+  ```
+
+- **authors**: Stores author information
+  ```sql
+  CREATE TABLE authors (
+      author_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL
+  )
+  ```
+
+- **wrote**: Stores the many-to-many relationship between authors and papers
+  ```sql
+  CREATE TABLE wrote (
+      author_id TEXT NOT NULL,
+      corpus_id BIGINT NOT NULL,
+      position INTEGER NOT NULL,
+      PRIMARY KEY (author_id, corpus_id),
+      FOREIGN KEY (author_id) REFERENCES authors(author_id) ON DELETE CASCADE,
+      FOREIGN KEY (corpus_id) REFERENCES papers(corpus_id) ON DELETE CASCADE
+  )
+  ```
 
 ## Testing
 

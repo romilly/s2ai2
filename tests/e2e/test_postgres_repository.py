@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from semantic_scholar.adapters.postgres_repository import PostgresPaperRepository
 from semantic_scholar.domain.paper import Paper
 from semantic_scholar.domain.paper_id import PaperId
+from semantic_scholar.domain.author import Author
 from semantic_scholar.config import DatabaseConfig
 
 # Load environment variables from .env file
@@ -25,6 +26,8 @@ def repository(db_config):  # Use db_config fixture directly
     repo = PostgresPaperRepository(db_config)
     with repo._get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS wrote")
+            cur.execute("DROP TABLE IF EXISTS authors")
             cur.execute("DROP TABLE IF EXISTS paperids")
             cur.execute("DROP TABLE IF EXISTS papers")
         conn.commit()
@@ -42,15 +45,20 @@ def test_save_and_retrieve_paper(repository):
         corpus_id=123,
         title="Test Paper",
         abstract="Test Abstract",
-        year=2023,
-        authors=["Author 1", "Author 2"]
+        year=2023
     )
 
     # Create paper ID mapping
     paper_ids = {123: [("paper123", True)]}
 
+    # Create author mapping
+    authors = {123: [
+        ("author1", "Author One", 0),
+        ("author2", "Author Two", 1)
+    ]}
+
     # Act
-    repository.save_papers([paper], paper_ids)
+    repository.save_papers([paper], paper_ids, authors)
     retrieved_paper = repository.get_paper_by_corpus_id(123)
 
     # Assert
@@ -59,7 +67,6 @@ def test_save_and_retrieve_paper(repository):
     assert retrieved_paper.title == paper.title
     assert retrieved_paper.abstract == paper.abstract
     assert retrieved_paper.year == paper.year
-    assert retrieved_paper.authors == paper.authors
 
     # Test retrieving by paper ID
     retrieved_by_id = repository.get_paper_by_id("paper123")
@@ -73,6 +80,14 @@ def test_save_and_retrieve_paper(repository):
     assert paper_ids_list[0].corpus_id == 123
     assert paper_ids_list[0].is_primary == True
 
+    # Test getting authors
+    authors_list = repository.get_authors_for_paper(123)
+    assert len(authors_list) == 2
+    assert authors_list[0].author_id == "author1"
+    assert authors_list[0].name == "Author One"
+    assert authors_list[1].author_id == "author2"
+    assert authors_list[1].name == "Author Two"
+
 def test_search_papers(repository):
     # Arrange
     papers = [
@@ -80,15 +95,13 @@ def test_search_papers(repository):
             corpus_id=1,
             title="Machine Learning Basics",
             abstract="A paper about ML",
-            year=2023,
-            authors=["Author 1"]
+            year=2023
         ),
         Paper(
             corpus_id=2,
             title="Deep Neural Networks",
             abstract="A paper about DNN",
-            year=2023,
-            authors=["Author 2"]
+            year=2023
         )
     ]
 
@@ -98,7 +111,13 @@ def test_search_papers(repository):
         2: [("paper2", True)]
     }
 
-    repository.save_papers(papers, paper_ids)
+    # Create author mappings
+    authors = {
+        1: [("author1", "Author One", 0)],
+        2: [("author2", "Author Two", 0)]
+    }
+
+    repository.save_papers(papers, paper_ids, authors)
 
     # Act
     results = repository.search_papers("machine learning")
@@ -106,3 +125,9 @@ def test_search_papers(repository):
     # Assert
     assert len(results) == 1
     assert results[0].corpus_id == 1
+
+    # Check authors
+    authors_list = repository.get_authors_for_paper(1)
+    assert len(authors_list) == 1
+    assert authors_list[0].author_id == "author1"
+    assert authors_list[0].name == "Author One"

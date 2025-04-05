@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 
 @dataclass
 class Paper:
@@ -8,4 +8,3 @@ class Paper:
     title: str
     abstract: Optional[str] = None
     year: Optional[int] = None
-    authors: List[str] = None

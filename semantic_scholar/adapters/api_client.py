@@ -14,7 +14,7 @@ class SemanticScholarApiClient:
         params = {
             "query": query,
             "limit": limit,
-            "fields": "paperId,corpusId,title,abstract,year,authors"
+            "fields": "paperId,corpusId,title,abstract,year,authors.name,authors.authorId"
         }
 
         return self._make_request("GET", endpoint, params)
