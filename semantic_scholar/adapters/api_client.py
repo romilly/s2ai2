@@ -5,9 +5,10 @@ from typing import Dict, Any
 class SemanticScholarApiClient:
     BASE_URL = "https://api.semanticscholar.org/graph/v1"
 
-    def __init__(self, max_retries: int = 3, initial_delay: float = 1.0):
+    def __init__(self, max_retries: int = 6, initial_delay: float = 2.0, backoff_factor: float = 3.0):
         self.max_retries = max_retries
         self.initial_delay = initial_delay
+        self.backoff_factor = backoff_factor
 
     def search_papers(self, query: str, limit: int = 10) -> Dict[str, Any]:
         endpoint = f"{self.BASE_URL}/paper/search"
@@ -24,15 +25,18 @@ class SemanticScholarApiClient:
 
         for attempt in range(self.max_retries):
             try:
+                print(f"Making request to {url} (attempt {attempt+1}/{self.max_retries})")
                 response = requests.request(method, url, params=params)
                 response.raise_for_status()
+                print(f"Request successful")
                 return response.json()
 
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 429:  # Rate limit exceeded
                     if attempt == self.max_retries - 1:
                         raise
+                    print(f"Rate limit exceeded. Retrying in {delay} seconds...")
                     time.sleep(delay)
-                    delay *= 2  # Exponential backoff
+                    delay *= self.backoff_factor  # Exponential backoff
                 else:
                     raise
